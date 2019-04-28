@@ -1,0 +1,13 @@
+body {
+  color: #cee;
+  background-color: #122
+}
+
+h1 {
+  text-align: center;
+  font-family: "Helvetica", sans-serif;
+  font-size: 40px;
+}
+
+.simulation-container {
+}
