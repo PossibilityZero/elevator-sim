@@ -9,5 +9,17 @@ h1 {
   font-size: 40px;
 }
 
+button {
+  height: 30px;
+  width: 200px;
+  font-size: 20px;
+  border-radius: 3px;
+  border-style: none;
+}
+
+button:hover {
+  opacity: 0.8;
+}
+
 .simulation-container {
 }
