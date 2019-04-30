@@ -11,18 +11,15 @@ class Elevator {
         return this.riders.length;
     }
 
-    removeRidersForDestination(floor) {
+    removeRidersForDestination() {
         // remove all riders with destination floor
-        let exiters = this.riders.filter(rider => rider.destination === floor);
-        this.riders = this.riders.filter(rider => rider.destination !== floor);
-        return exiters;
+        if (!this.destination) {
+            let exiters = this.riders.filter(rider => rider.destination === this.floor);
+            this.riders = this.riders.filter(rider => rider.destination !== this.floor);
+            return exiters;
+        }
     }
     
-    sendToFloor(floor) {
-        this.floor = floor;
-        this.removeRidersForDestination(floor);
-    }
-
     addRider(rider) {
         // return true and add to riders if capacity allows
         if (this.riders.length < this.capacity) {
@@ -32,12 +29,30 @@ class Elevator {
             return false;
         }
     }
+
+    chooseDestination() {
+        if (this.riderCount === 0) {
+            this.destination = null;
+        } else {
+            this.destination = this.riders[0].destination;
+        }
+    }
+
+    update() {
+        if (!this.destination) {
+            this.floor = this.height;
+            this.removeRidersForDestination();
+        }
+
+        
+        this.chooseDestination();
+    }
 }
 
 class ElevatorShaft {
     constructor(floors) {
         const startFloor = 1;
-        const capacity = 5;
+        const capacity = 12;
         this.elevator = new Elevator(startFloor, capacity);
         this.floors = floors;
     }
@@ -46,21 +61,19 @@ class ElevatorShaft {
         // update one tick
         let destination = this.elevator.destination;
         let height = this.elevator.height;
+        let maxSpeed = 0.05;
         if (destination) {
             if (height > destination) {
-                let diff = Math.max(-0.05, destination - height);
+                let diff = Math.max(maxSpeed * -1, destination - height);
                 this.elevator.height += diff;
             } else if (height < destination) {
-                let diff = Math.min(0.05, destination - height);
+                let diff = Math.min(maxSpeed, destination - height);
                 this.elevator.height += diff;
             } else {
                 this.elevator.destination = null;
             }
-        } else {
-            if (Math.random() > 0.99) {
-                this.elevator.destination = pickFloor(1,8);
-            }
         }
+        this.elevator.update();
     }
 }
 
@@ -90,18 +103,31 @@ class Simulation {
         }
     }
 
+    drawRiders(elevator, elevatorElement) {
+        for (let i = 0; i < elevator.riderCount; i++) {
+            let rider = document.createElement("div");
+            rider.classList.add("rider");
+            elevatorElement.append(rider);
+        }
+    }
+
+    drawElevator(shaft, shaftElement) {
+        const elevator = document.createElement("div");
+        elevator.classList.add("elevator");
+        shaftElement.append(elevator);
+        elevator.style.bottom = ((shaft.elevator.height - 1) * 50) + "px";
+
+        this.drawRiders(shaft.elevator, elevator);
+    }
+
     drawElevatorShaft(shaft) {
         const newShaft = document.createElement("div");
         newShaft.classList.add("elevator-shaft");
         this.graphicsContainer.appendChild(newShaft);
         newShaft.style.height = shaft.floors * 50 + "px";
-        newShaft.style.width = "50px";
+        newShaft.style.width = "40px";
 
-        const elevator = document.createElement("div");
-        elevator.classList.add("elevator");
-        newShaft.append(elevator);
-
-        elevator.style.bottom = ((shaft.elevator.height - 1) * 50) + "px";
+        this.drawElevator(shaft, newShaft);
     }
 
     drawGraphics() {
@@ -115,7 +141,11 @@ class Simulation {
     }
 
     run() {
-        setInterval(this.update.bind(this), 40);
+        this.sim = setInterval(this.update.bind(this), 40);
+    }
+
+    pause() {
+        clearInterval(this.sim);
     }
 }
 
@@ -127,18 +157,33 @@ function pickFloor(min, max) {
 
 function createNewRider() {
     let minFloor = 1;
-    let maxFloor = 4;
+    let maxFloor = 8;
     let start = pickFloor(minFloor, maxFloor);
     let destination = pickFloor(minFloor, maxFloor);
     return new Rider(start, destination);
 }
 
-let elevator = new Elevator(1, 5);
+
+const simulation = new Simulation(20);
 
 document.querySelector("#create-rider-button").addEventListener("click", function() {
-    let rider = createNewRider();
-    elevator.addRider(rider);
-    console.log(elevator.riders);
+    for (let i = 0; i < simulation.shafts.length; i++) {
+        let rider = createNewRider();
+        let elevator = simulation.shafts[i].elevator;
+        elevator.addRider(rider);
+        console.log(elevator.riders);
+    }
 });
 
-(new Simulation(2)).run();
+document.querySelector("#pause-sim-button").addEventListener("click", function() {
+    if (this.textContent === "Pause") {
+        simulation.pause();
+        this.textContent = "Start";
+    } else {
+        simulation.run();
+        this.textContent = "Pause";
+    }
+});
+
+simulation.run();
+
