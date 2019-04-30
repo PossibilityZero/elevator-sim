@@ -1,8 +1,10 @@
 class Elevator {
     constructor(floor, capacity) {
         this.floor = floor;
+        this.height = floor;
         this.capacity = capacity;
         this.riders = [];
+        this.destination = null;
     }
 
     get riderCount() {
@@ -32,10 +34,88 @@ class Elevator {
     }
 }
 
+class ElevatorShaft {
+    constructor(floors) {
+        const startFloor = 1;
+        const capacity = 5;
+        this.elevator = new Elevator(startFloor, capacity);
+        this.floors = floors;
+    }
+
+    update() {
+        // update one tick
+        let destination = this.elevator.destination;
+        let height = this.elevator.height;
+        if (destination) {
+            if (height > destination) {
+                let diff = Math.max(-0.05, destination - height);
+                this.elevator.height += diff;
+            } else if (height < destination) {
+                let diff = Math.min(0.05, destination - height);
+                this.elevator.height += diff;
+            } else {
+                this.elevator.destination = null;
+            }
+        } else {
+            if (Math.random() > 0.99) {
+                this.elevator.destination = pickFloor(1,8);
+            }
+        }
+    }
+}
+
 class Rider {
     constructor(start, destination) {
         this.start = start;
         this.destination = destination;
+    }
+}
+
+class Simulation {
+    constructor(shafts) {
+        this.shafts = []
+        for (let i = 0; i < shafts; i++) {
+            this.addShaft();
+        }
+        this.graphicsContainer = document.querySelector(".simulation-graphics-container");
+    }
+
+    addShaft() {
+        this.shafts.push(new ElevatorShaft(8));
+    }
+
+    clearGraphics() {
+        while (this.graphicsContainer.firstChild) {
+            this.graphicsContainer.removeChild(this.graphicsContainer.firstChild);
+        }
+    }
+
+    drawElevatorShaft(shaft) {
+        const newShaft = document.createElement("div");
+        newShaft.classList.add("elevator-shaft");
+        this.graphicsContainer.appendChild(newShaft);
+        newShaft.style.height = shaft.floors * 50 + "px";
+        newShaft.style.width = "50px";
+
+        const elevator = document.createElement("div");
+        elevator.classList.add("elevator");
+        newShaft.append(elevator);
+
+        elevator.style.bottom = ((shaft.elevator.height - 1) * 50) + "px";
+    }
+
+    drawGraphics() {
+        this.clearGraphics();
+        this.shafts.forEach(e => this.drawElevatorShaft(e));
+    }
+
+    update() {
+        this.drawGraphics();
+        this.shafts.forEach(e => e.update());
+    }
+
+    run() {
+        setInterval(this.update.bind(this), 40);
     }
 }
 
@@ -60,3 +140,5 @@ document.querySelector("#create-rider-button").addEventListener("click", functio
     elevator.addRider(rider);
     console.log(elevator.riders);
 });
+
+(new Simulation(2)).run();
