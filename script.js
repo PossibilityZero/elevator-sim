@@ -1,3 +1,6 @@
+const FLOORS = 7;
+const ELEVATORS = 5;
+
 class Elevator {
     constructor(floor, capacity) {
         this.floor = floor;
@@ -43,18 +46,18 @@ class Elevator {
             this.floor = this.height;
             this.removeRidersForDestination();
         }
-
         
         this.chooseDestination();
     }
 }
 
 class ElevatorShaft {
-    constructor(floors) {
+    constructor(id, floors) {
         const startFloor = 1;
         const capacity = 12;
         this.elevator = new Elevator(startFloor, capacity);
         this.floors = floors;
+        this.id = id;
     }
 
     update() {
@@ -94,7 +97,8 @@ class Simulation {
     }
 
     addShaft() {
-        this.shafts.push(new ElevatorShaft(8));
+        // add shaft and assign unique ID
+        this.shafts.push(new ElevatorShaft(this.shafts.length, FLOORS));
     }
 
     clearGraphics() {
@@ -127,6 +131,20 @@ class Simulation {
         newShaft.style.height = shaft.floors * 50 + "px";
         newShaft.style.width = "40px";
 
+        for (let i = 0; i < shaft.floors; i++) {
+            let floor = document.createElement("div");
+            floor.textContent = i + 1;
+            floor.classList.add("floor");
+            floor.dataset.floor = i + 1;
+            floor.style.bottom = (i * 50) + "px";
+            if (i % 2 === 0) {
+                floor.style.backgroundColor = "#fff3";
+            } else {
+                floor.style.backgroundColor = "#fff1";
+            }
+            newShaft.append(floor);
+        }
+
         this.drawElevator(shaft, newShaft);
     }
 
@@ -135,13 +153,13 @@ class Simulation {
         this.shafts.forEach(e => this.drawElevatorShaft(e));
     }
 
-    update() {
+    simulateTick() {
         this.drawGraphics();
         this.shafts.forEach(e => e.update());
     }
 
     run() {
-        this.sim = setInterval(this.update.bind(this), 40);
+        this.sim = setInterval(this.simulateTick.bind(this), 40);
     }
 
     pause() {
@@ -157,14 +175,14 @@ function pickFloor(min, max) {
 
 function createNewRider() {
     let minFloor = 1;
-    let maxFloor = 8;
+    let maxFloor = FLOORS;
     let start = pickFloor(minFloor, maxFloor);
     let destination = pickFloor(minFloor, maxFloor);
     return new Rider(start, destination);
 }
 
 
-const simulation = new Simulation(20);
+const simulation = new Simulation(ELEVATORS);
 
 document.querySelector("#create-rider-button").addEventListener("click", function() {
     for (let i = 0; i < simulation.shafts.length; i++) {
@@ -186,4 +204,3 @@ document.querySelector("#pause-sim-button").addEventListener("click", function()
 });
 
 simulation.run();
-
