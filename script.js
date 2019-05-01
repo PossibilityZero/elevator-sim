@@ -5,6 +5,13 @@ const direction = {
     DOWN: "down",
     NONE: "none"
 }
+const doorState = {
+    CLOSED: "closed",
+    OPENING: "opening",
+    OPEN: "open",
+    CLOSING: "closing"
+}
+
 const CAPACITY = 12;
 
 class Elevator {
@@ -16,6 +23,7 @@ class Elevator {
         this.riders = [];
         this.destination = null;
         this.shaft = new ElevatorShaft(this);
+        this.doors = new ElevatorDoor(this);
     }
 
     get riderCount() {
@@ -26,9 +34,19 @@ class Elevator {
         return this.capacity > this.riderCount;
     }
 
+    get canMove() {
+        return this.doors.areClosed && this.destination !== null;
+    }
+
+    get findRidersForThisFloor() {
+        // find all riders with destination floor
+        let riders = this.riders.filter(rider => rider.destination === this.floor);
+        return riders.length > 0;
+    }
+
     removeRidersForDestination() {
         // remove all riders with destination floor
-        if (!this.destination) {
+        if (this.doors.areOpen) {
             let exiters = this.riders.filter(rider => rider.destination === this.floor);
             this.riders = this.riders.filter(rider => rider.destination !== this.floor);
             return exiters;
@@ -54,13 +72,19 @@ class Elevator {
     }
 
     update() {
-        if (!this.destination) {
+        if (this.shaft.velocity === 0) {
             this.floor = this.height;
+            if (this.findRidersForThisFloor) {
+                this.doors.open();
+            } else if (this.riders.length > 0) {
+                this.doors.close();
+            }
             this.removeRidersForDestination();
+            this.chooseDestination();
         }
         
-        this.chooseDestination();
         this.shaft.update();
+        this.doors.update();
     }
 }
 
@@ -68,7 +92,7 @@ class ElevatorShaft {
     // Handle Elevator movement
     constructor(elevator) {
         this.elevator = elevator
-        this.floors = elevator.floors;
+        this.velocity = 0;
     }
 
     update() {
@@ -76,15 +100,60 @@ class ElevatorShaft {
         let destination = this.elevator.destination;
         let height = this.elevator.height;
         let maxSpeed = 0.05;
-        if (destination) {
+        if (this.elevator.canMove) {
             if (height > destination) {
                 let diff = Math.max(maxSpeed * -1, destination - height);
-                this.elevator.height += diff;
+                this.velocity = diff;
             } else if (height < destination) {
                 let diff = Math.min(maxSpeed, destination - height);
-                this.elevator.height += diff;
+                this.velocity = diff;
             } else {
+                this.velocity = 0;
                 this.elevator.destination = null;
+            }
+        }
+        this.elevator.height += this.velocity;
+    }
+}
+
+class ElevatorDoor {
+    // Handle Elevator stopping
+    constructor(elevator) {
+        this.elevator = elevator;
+        this.state = doorState.OPEN;
+        // ticks required to open or close;
+        this.delay = 12;
+        this.remainingTicks = 0;
+    }
+
+    get areClosed() {
+        return this.state === doorState.CLOSED;
+    }
+
+    get areOpen() {
+        return this.state === doorState.OPEN;
+    }
+
+    open() {
+        if (this.state != doorState.OPEN && this.state != doorState.OPENING) {
+            this.state = doorState.OPENING;
+            this.remainingTicks = this.delay;
+        }
+    }
+
+    close() {
+        if (this.state != doorState.CLOSED && this.state != doorState.CLOSING) {
+            this.state = doorState.CLOSING;
+            this.remainingTicks = this.delay;
+        }
+    }
+
+    update() {
+        if (this.state === doorState.OPENING || this.state === doorState.CLOSING) {
+            this.remainingTicks--;
+            if (this.remainingTicks <= 0) {
+                // If it was opening, change to OPEN. Otherwise change to CLOSED
+                this.state = this.state === doorState.OPENING ? doorState.OPEN : doorState.CLOSED;
             }
         }
     }
