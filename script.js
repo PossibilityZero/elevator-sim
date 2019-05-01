@@ -1,17 +1,29 @@
 const FLOORS = 7;
-const ELEVATORS = 5;
+const ELEVATORS = 1;
+const direction = {
+    UP: "up",
+    DOWN: "down",
+    NONE: "none"
+}
+const CAPACITY = 12;
 
 class Elevator {
-    constructor(floor, capacity) {
-        this.floor = floor;
-        this.height = floor;
+    constructor(floors, capacity) {
+        this.floor = 1;
+        this.floors = floors
+        this.height = 1;
         this.capacity = capacity;
         this.riders = [];
         this.destination = null;
+        this.shaft = new ElevatorShaft(this);
     }
 
     get riderCount() {
         return this.riders.length;
+    }
+
+    get hasCapacity() {
+        return this.capacity > this.riderCount;
     }
 
     removeRidersForDestination() {
@@ -48,16 +60,15 @@ class Elevator {
         }
         
         this.chooseDestination();
+        this.shaft.update();
     }
 }
 
 class ElevatorShaft {
-    constructor(id, floors) {
-        const startFloor = 1;
-        const capacity = 12;
-        this.elevator = new Elevator(startFloor, capacity);
-        this.floors = floors;
-        this.id = id;
+    // Handle Elevator movement
+    constructor(elevator) {
+        this.elevator = elevator
+        this.floors = elevator.floors;
     }
 
     update() {
@@ -76,7 +87,6 @@ class ElevatorShaft {
                 this.elevator.destination = null;
             }
         }
-        this.elevator.update();
     }
 }
 
@@ -85,22 +95,68 @@ class Rider {
         this.start = start;
         this.destination = destination;
     }
+    
+    get direction() {
+        if (start < destination) {
+            return directions.UP;
+        } else if (start > destination) {
+            return directions.DOWN;
+        } else {
+            return directions.NONE;
+        }
+    }
 }
 
 class Simulation {
     constructor(shafts) {
-        this.shafts = []
+        this.elevators = []
+        this.waitingRiders = [];
         for (let i = 0; i < shafts; i++) {
-            this.addShaft();
+            this.addElevator();
         }
         this.graphicsContainer = document.querySelector(".simulation-graphics-container");
     }
 
-    addShaft() {
-        // add shaft and assign unique ID
-        this.shafts.push(new ElevatorShaft(this.shafts.length, FLOORS));
+    addElevator() {
+        this.elevators.push(new Elevator(FLOORS, CAPACITY));
     }
 
+    getElevatorsAtFloor(floor) {
+        // return array of elevators at a floor
+        let elevatorsAtFloor =  this.elevators.filter(function(elevator) {
+            return elevator.height === floor && !elevator.destination
+        });
+        return elevatorsAtFloor;
+    }
+
+    createRider() {
+        this.waitingRiders.push(createNewRider());
+    }
+
+    directElevators() {
+        this.elevators.forEach(function(elevator) {
+        });
+    }
+
+    updateRiders() {
+        for (let i = this.waitingRiders.length - 1; i >= 0; i--) {
+            let rider = this.waitingRiders[i];
+            let startFloor = rider.start;
+            let availableElevator = this.getElevatorsAtFloor(startFloor)
+                    .find(elevator => elevator.hasCapacity);
+            if (availableElevator) {
+                availableElevator.addRider(rider);
+                this.waitingRiders.splice(i, 1);
+            }
+        }
+    }
+
+    updateController() {
+        this.directElevators();
+        this.updateRiders();
+    }
+
+    // Graphics
     clearGraphics() {
         while (this.graphicsContainer.firstChild) {
             this.graphicsContainer.removeChild(this.graphicsContainer.firstChild);
@@ -115,23 +171,23 @@ class Simulation {
         }
     }
 
-    drawElevator(shaft, shaftElement) {
-        const elevator = document.createElement("div");
-        elevator.classList.add("elevator");
-        shaftElement.append(elevator);
-        elevator.style.bottom = ((shaft.elevator.height - 1) * 50) + "px";
+    drawElevator(elevator, shaftElement) {
+        const elevatorElement = document.createElement("div");
+        elevatorElement.classList.add("elevator");
+        shaftElement.append(elevatorElement);
+        elevatorElement.style.bottom = ((elevator.height - 1) * 50) + "px";
 
-        this.drawRiders(shaft.elevator, elevator);
+        this.drawRiders(elevator, elevatorElement);
     }
 
-    drawElevatorShaft(shaft) {
+    drawElevatorShaft(elevator) {
         const newShaft = document.createElement("div");
         newShaft.classList.add("elevator-shaft");
         this.graphicsContainer.appendChild(newShaft);
-        newShaft.style.height = shaft.floors * 50 + "px";
+        newShaft.style.height = elevator.floors * 50 + "px";
         newShaft.style.width = "40px";
 
-        for (let i = 0; i < shaft.floors; i++) {
+        for (let i = 0; i < elevator.floors; i++) {
             let floor = document.createElement("div");
             floor.textContent = i + 1;
             floor.classList.add("floor");
@@ -145,17 +201,18 @@ class Simulation {
             newShaft.append(floor);
         }
 
-        this.drawElevator(shaft, newShaft);
+        this.drawElevator(elevator, newShaft);
     }
 
     drawGraphics() {
         this.clearGraphics();
-        this.shafts.forEach(e => this.drawElevatorShaft(e));
+        this.elevators.forEach(elevator => this.drawElevatorShaft(elevator));
     }
 
     simulateTick() {
         this.drawGraphics();
-        this.shafts.forEach(e => e.update());
+        this.elevators.forEach(elevator => elevator.update());
+        this.updateController();
     }
 
     run() {
@@ -178,19 +235,14 @@ function createNewRider() {
     let maxFloor = FLOORS;
     let start = pickFloor(minFloor, maxFloor);
     let destination = pickFloor(minFloor, maxFloor);
-    return new Rider(start, destination);
+    return new Rider(1, destination);
 }
 
 
 const simulation = new Simulation(ELEVATORS);
 
 document.querySelector("#create-rider-button").addEventListener("click", function() {
-    for (let i = 0; i < simulation.shafts.length; i++) {
-        let rider = createNewRider();
-        let elevator = simulation.shafts[i].elevator;
-        elevator.addRider(rider);
-        console.log(elevator.riders);
-    }
+    simulation.createRider();
 });
 
 document.querySelector("#pause-sim-button").addEventListener("click", function() {
