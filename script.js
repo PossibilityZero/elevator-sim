@@ -1,5 +1,5 @@
 const FLOORS = 7;
-const ELEVATORS = 1;
+const ELEVATORS = 2;
 const direction = {
     UP: "up",
     DOWN: "down",
@@ -21,7 +21,6 @@ class Elevator {
         this.height = 1;
         this.capacity = capacity;
         this.riders = [];
-        this.requestQueue = [];
         this.destination = null;
         this.shaft = new ElevatorShaft(this);
         this.doors = new ElevatorDoor(this);
@@ -37,6 +36,10 @@ class Elevator {
 
     get canMove() {
         return this.doors.areClosed;
+    }
+
+    get isStoppedAtFloor() {
+        return this.shaft.velocity === 0;
     }
 
     get findRidersForThisFloor() {
@@ -200,37 +203,26 @@ class Rider {
     }
 }
 
-class Simulation {
-    constructor(shafts) {
-        this.elevators = []
-        this.waitingRiders = [];
-        for (let i = 0; i < shafts; i++) {
+class Building {
+    // Group of elevators which share the same pool of riders
+    constructor(id, elevators, floors) {
+        this.elevators = [];
+        for (let i = 0; i < elevators; i++) {
             this.addElevator();
         }
-        this.ticksElapsed = 0;
-        this.graphicsContainer = document.querySelector(".simulation-graphics-container");
-        this.debugContainer = document.querySelector(".debug-info-container");
-    }
-
-    addElevator() {
-        this.elevators.push(new Elevator(FLOORS, CAPACITY));
+        this.waitingRiders = [];
+        this.floors = floors;
     }
 
     getElevatorsAtFloor(floor) {
         // return array of elevators at a floor
-        let elevatorsAtFloor =  this.elevators.filter(function(elevator) {
-            return elevator.height === floor && !elevator.destination
-        });
+        let elevatorsAtFloor =  this.elevators
+                .filter(elevator => elevator.isStoppedAtFloor && elevator.floor === floor);
         return elevatorsAtFloor;
     }
 
-    createRider() {
-        this.waitingRiders.push(createNewRider());
-    }
-
-    directElevators() {
-        this.elevators.forEach(function(elevator) {
-        });
+    addElevator() {
+        this.elevators.push(new Elevator(FLOORS, CAPACITY));
     }
 
     updateRiders() {
@@ -247,8 +239,39 @@ class Simulation {
     }
 
     updateController() {
-        this.directElevators();
+        //this.directElevators();
         this.updateRiders();
+    }
+
+    createRider() {
+        let minFloor = 1;
+        let maxFloor = FLOORS;
+        let start = pickFloor(minFloor, maxFloor);
+        let destination = pickFloor(minFloor, maxFloor);
+        this.waitingRiders.push(new Rider(start, destination));
+    }
+
+    update() {
+        this.elevators.forEach(elevator => elevator.update());
+        this.updateController();
+    }
+}
+
+class Simulation {
+    constructor() {
+        this.graphicsContainer = document.querySelector(".simulation-graphics-container");
+        this.debugContainer = document.querySelector(".debug-info-container");
+
+        this.sim = null;
+        this.reset();
+    }
+
+    reset() {
+        this.buildings = [new Building(1, ELEVATORS, FLOORS)];
+        this.ticksElapsed = 0;
+        this.clearGraphics();
+
+        clearInterval(this.sim);
     }
 
     // Graphics
@@ -267,9 +290,9 @@ class Simulation {
         }
     }
 
-    drawWaitingRiders(floorElement) {
+    drawWaitingRiders(building, floorElement) {
         let floor = floorElement.dataset.floor;
-        this.waitingRiders
+        building.waitingRiders
                 .filter(rider => rider.start == floor)
                 .forEach(function(rider) {
                     let riderElement = document.createElement("div");
@@ -320,7 +343,7 @@ class Simulation {
         this.drawElevator(elevator, newShaft);
     }
 
-    drawFloors(buildingElement) {
+    drawFloors(building, buildingElement) {
         let floorsContainer = document.createElement("div");
         floorsContainer.classList.add("building-floors-container");
         buildingElement.appendChild(floorsContainer);
@@ -335,24 +358,22 @@ class Simulation {
             } else {
                 floor.style.backgroundColor = "#fff1";
             }
-            this.drawWaitingRiders(floor);
+            this.drawWaitingRiders(building, floor);
             floorsContainer.append(floor);
         }
     }
 
-    drawBuilding() {
-        // A Building represents a collection of elevators
-        // TODO Separate buildings into their own data structure
+    drawBuilding(building) {
         const newBuilding = document.createElement("div");
         newBuilding.classList.add("building");
         this.graphicsContainer.appendChild(newBuilding);
-        this.elevators.forEach(elevator => this.drawElevatorShaft(elevator, newBuilding));
-        this.drawFloors(newBuilding);
+        building.elevators.forEach(elevator => this.drawElevatorShaft(elevator, newBuilding));
+        this.drawFloors(building, newBuilding);
     }
 
     drawGraphics() {
         this.clearGraphics();
-        this.drawBuilding();
+        this.buildings.forEach(building => this.drawBuilding(building));
     }
 
     addDebugInfo(name, value) {
@@ -362,14 +383,12 @@ class Simulation {
     updateDebugInfo() {
         this.debugContainer.textContent = "";
         this.addDebugInfo("Ticks Elapsed", this.ticksElapsed);
-        this.addDebugInfo("Waiting Riders", this.waitingRiders.length);
     }
 
     simulateTick() {
-        this.drawGraphics();
-        this.elevators.forEach(elevator => elevator.update());
-        this.updateController();
+        this.buildings.forEach(building => building.update());
 
+        this.drawGraphics();
         this.updateDebugInfo();
 
         this.ticksElapsed++;
@@ -390,24 +409,15 @@ function pickFloor(min, max) {
     return floor;
 }
 
-function createNewRider() {
-    let minFloor = 1;
-    let maxFloor = FLOORS;
-    let start = pickFloor(minFloor, maxFloor);
-    let destination = pickFloor(minFloor, maxFloor);
-    return new Rider(start, destination);
-}
-
-
-const simulation = new Simulation(ELEVATORS);
+const simulation = new Simulation();
 
 document.querySelector("#create-rider-button").addEventListener("click", function() {
-    simulation.createRider();
+    simulation.buildings[0].createRider();
 });
 
 document.querySelector("#create-many-riders-button").addEventListener("click", function() {
     for (let i = 0; i < 50; i++) {
-        simulation.createRider();
+        simulation.buildings[0].createRider();
     }
 });
 
