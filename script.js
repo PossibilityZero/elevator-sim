@@ -16,7 +16,6 @@ const CAPACITY = 12;
 
 class Elevator {
     constructor(floors, capacity) {
-        this.floor = 1;
         this.floors = floors
         this.height = 1;
         this.capacity = capacity;
@@ -24,6 +23,11 @@ class Elevator {
         this.destination = null;
         this.shaft = new ElevatorShaft(this);
         this.doors = new ElevatorDoor(this);
+        this.remainingDelayTicks = 0;
+    }
+
+    get delaying() {
+        return this.remainingDelayTicks > 0;
     }
 
     get riderCount() {
@@ -38,8 +42,17 @@ class Elevator {
         return this.doors.areClosed;
     }
 
+    get floor() {
+        return this.isStoppedAtFloor ? this.height : null;
+    }
+
     get isStoppedAtFloor() {
         return this.shaft.velocity === 0;
+    }
+
+    get canEnter() {
+        // Check that the elevator is stopped, doors are open, and not delaying
+        return this.isStoppedAtFloor && this.doors.areOpen && !this.delaying;
     }
 
     get findRidersForThisFloor() {
@@ -48,19 +61,28 @@ class Elevator {
         return riders.length > 0;
     }
 
+    addDelay(ticks) {
+        this.remainingDelayTicks += ticks;
+    }
+
     removeRidersForDestination() {
-        // remove all riders with destination floor
-        if (this.doors.areOpen) {
-            let exiters = this.riders.filter(rider => rider.destination === this.floor);
-            this.riders = this.riders.filter(rider => rider.destination !== this.floor);
-            return exiters;
+        // remove first rider with current floor as destination
+        if (this.canEnter && this.findRidersForThisFloor) {
+            let exiter = this.riders.find(rider => rider.destination === this.floor);
+            this.riders.splice(this.riders.indexOf(exiter), 1);
+            this.addDelay(exiter.actionDelay);
         }
     }
     
     addRider(rider) {
         // return true and add to riders if capacity allows
-        if (this.riders.length < this.capacity) {
+        if (this.findRidersForThisFloor) {
+            // have all riders exit before new riders enter
+            return false;
+        }
+        if (this.riders.length < this.capacity && !this.delaying) {
             this.riders.push(rider);
+            this.addDelay(rider.actionDelay);
             return true;
         } else {
             return false;
@@ -76,15 +98,18 @@ class Elevator {
     }
 
     update() {
-        if (this.shaft.velocity === 0) {
-            this.floor = this.height;
-            if (this.findRidersForThisFloor) {
-                this.doors.open();
-            } else if (this.riders.length > 0) {
-                this.doors.close();
+        if (this.delaying) {
+            this.remainingDelayTicks--;
+        } else {
+            if (this.isStoppedAtFloor) {
+                if (this.findRidersForThisFloor) {
+                    this.doors.open();
+                } else {
+                    this.doors.close();
+                }
+                this.removeRidersForDestination();
+                this.chooseDestination();
             }
-            this.removeRidersForDestination();
-            this.chooseDestination();
         }
         
         this.shaft.update();
@@ -127,7 +152,7 @@ class ElevatorDoor {
         this.state = doorState.OPEN;
         // ticks required to open or close;
         this.delay = 12;
-        this.remainingTicks = 0;
+        this.remainingDelayTicks = 0;
     }
 
     get doorsClosedPercentage() {
@@ -140,10 +165,10 @@ class ElevatorDoor {
                 fraction = 1;
                 break
             case doorState.OPENING:
-                fraction = this.remainingTicks / this.delay;
+                fraction = this.remainingDelayTicks / this.delay;
                 break
             case doorState.CLOSING:
-                fraction = 1 - (this.remainingTicks / this.delay);
+                fraction = 1 - (this.remainingDelayTicks / this.delay);
                 break
         }
         const percentage = fraction * 100 + "%";
@@ -159,23 +184,23 @@ class ElevatorDoor {
     }
 
     open() {
-        if (this.state != doorState.OPEN && this.state != doorState.OPENING) {
+        if (this.state === doorState.CLOSED) {
             this.state = doorState.OPENING;
-            this.remainingTicks = this.delay;
+            this.remainingDelayTicks = this.delay;
         }
     }
 
     close() {
-        if (this.state != doorState.CLOSED && this.state != doorState.CLOSING) {
+        if (this.state === doorState.OPEN) {
             this.state = doorState.CLOSING;
-            this.remainingTicks = this.delay;
+            this.remainingDelayTicks = this.delay;
         }
     }
 
     update() {
         if (this.state === doorState.OPENING || this.state === doorState.CLOSING) {
-            this.remainingTicks--;
-            if (this.remainingTicks <= 0) {
+            this.remainingDelayTicks--;
+            if (this.remainingDelayTicks <= 0) {
                 // If it was opening, change to OPEN. Otherwise change to CLOSED
                 this.state = this.state === doorState.OPENING ? doorState.OPEN : doorState.CLOSED;
             }
@@ -184,9 +209,11 @@ class ElevatorDoor {
 }
 
 class Rider {
-    constructor(start, destination) {
+    constructor(start, destination, actionDelay=2) {
         this.start = start;
         this.destination = destination;
+        // ticks to act
+        this.actionDelay = actionDelay;
         // choose random color to distinguish riders
         let colors = ["#111", "#944", "#294", "#331", "#505", "#007", "#280"];
         this.color = colors[Math.floor(Math.random() * colors.length)];
@@ -230,16 +257,20 @@ class Building {
             let rider = this.waitingRiders[i];
             let startFloor = rider.start;
             let availableElevator = this.getElevatorsAtFloor(startFloor)
-                    .find(elevator => elevator.hasCapacity);
+                    .find(elevator => elevator.canEnter);
             if (availableElevator) {
-                availableElevator.addRider(rider);
-                this.waitingRiders.splice(i, 1);
+                if (availableElevator.addRider(rider)) {
+                    this.waitingRiders.splice(i, 1);
+                }
             }
         }
     }
 
+    directElevators() {
+    }
+
     updateController() {
-        //this.directElevators();
+        this.directElevators();
         this.updateRiders();
     }
 
@@ -248,6 +279,10 @@ class Building {
         let maxFloor = FLOORS;
         let start = pickFloor(minFloor, maxFloor);
         let destination = pickFloor(minFloor, maxFloor);
+        while (destination === start) {
+            // re-pick if destination is the same floor
+            destination = pickFloor(minFloor, maxFloor);
+        }
         this.waitingRiders.push(new Rider(start, destination));
     }
 
