@@ -89,11 +89,11 @@ class Elevator {
         }
     }
 
-    chooseDestination() {
-        if (this.riderCount === 0) {
+    setDestination(floor) {
+        if (!floor) {
             this.destination = null;
-        } else {
-            this.destination = this.riders[0].destination;
+        } else if (Number.isInteger(floor)) {
+            this.destination = floor;
         }
     }
 
@@ -104,11 +104,10 @@ class Elevator {
             if (this.isStoppedAtFloor) {
                 if (this.findRidersForThisFloor) {
                     this.doors.open();
+                    this.removeRidersForDestination();
                 } else {
                     this.doors.close();
                 }
-                this.removeRidersForDestination();
-                this.chooseDestination();
             }
         }
         
@@ -138,7 +137,6 @@ class ElevatorShaft {
                 this.velocity = diff;
             } else {
                 this.velocity = 0;
-                this.elevator.destination = null;
             }
         }
         this.elevator.height += this.velocity;
@@ -248,6 +246,12 @@ class Building {
         return elevatorsAtFloor;
     }
 
+    getRidersAtFloor(floor) {
+        let ridersAtFloor = this.waitingRiders
+                .filter(rider => rider.start === floor);
+        return ridersAtFloor;
+    }
+
     addElevator() {
         this.elevators.push(new Elevator(FLOORS, CAPACITY));
     }
@@ -266,7 +270,24 @@ class Building {
         }
     }
 
+
     directElevators() {
+        // Decide which elevators go where
+        this.elevators.forEach(function(elevator) {
+            if (elevator.isStoppedAtFloor
+                    && elevator.hasCapacity
+                    && this.getRidersAtFloor(elevator.floor).length > 0) {
+                elevator.doors.open();
+            } else if (elevator.riderCount === 0) {
+                if (this.waitingRiders.length > 0) {
+                    elevator.setDestination(this.waitingRiders[0].start);
+                } else {
+                    elevator.setDestination(null);
+                }
+            } else {
+                elevator.setDestination(elevator.riders[0].destination);
+            }
+        }.bind(this));
     }
 
     updateController() {
