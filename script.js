@@ -163,6 +163,9 @@ class Rider {
     constructor(start, destination) {
         this.start = start;
         this.destination = destination;
+        // choose random color to distinguish riders
+        let colors = ["#111", "#944", "#294", "#331", "#505", "#007", "#280"];
+        this.color = colors[Math.floor(Math.random() * colors.length)];
     }
     
     get direction() {
@@ -237,6 +240,7 @@ class Simulation {
             let rider = document.createElement("div");
             rider.classList.add("rider");
             elevatorElement.append(rider);
+            rider.style.backgroundColor = elevator.riders[i].color;
         }
     }
 
@@ -304,7 +308,7 @@ function createNewRider() {
     let maxFloor = FLOORS;
     let start = pickFloor(minFloor, maxFloor);
     let destination = pickFloor(minFloor, maxFloor);
-    return new Rider(1, destination);
+    return new Rider(start, destination);
 }
 
 
