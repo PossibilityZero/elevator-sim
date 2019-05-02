@@ -48,6 +48,16 @@ button:hover {
   z-index: 10;
 }
 
+.elevator-door {
+  display: block;
+  position: absolute;
+  border-style: none;
+  border-radius: 5px;
+  background-color: #3335;
+  height: 100%;
+  z-index: 15;
+}
+
 .rider {
   display: inline-block;
   margin: 2px;

@@ -126,6 +126,26 @@ class ElevatorDoor {
         this.remainingTicks = 0;
     }
 
+    get doorsClosedPercentage() {
+        let fraction;
+        switch (this.state) {
+            case doorState.OPEN:
+                fraction = 0;
+                break
+            case doorState.CLOSED:
+                fraction = 1;
+                break
+            case doorState.OPENING:
+                fraction = this.remainingTicks / this.delay;
+                break
+            case doorState.CLOSING:
+                fraction = 1 - (this.remainingTicks / this.delay);
+                break
+        }
+        const percentage = fraction * 100 + "%";
+        return percentage
+    }
+
     get areClosed() {
         return this.state === doorState.CLOSED;
     }
@@ -244,12 +264,20 @@ class Simulation {
         }
     }
 
+    drawDoor(elevator, elevatorElement) {
+        const doorElement = document.createElement("div");
+        doorElement.classList.add("elevator-door");
+        elevatorElement.append(doorElement);
+        doorElement.style.width = elevator.doors.doorsClosedPercentage;
+    }
+
     drawElevator(elevator, shaftElement) {
         const elevatorElement = document.createElement("div");
         elevatorElement.classList.add("elevator");
         shaftElement.append(elevatorElement);
         elevatorElement.style.bottom = ((elevator.height - 1) * 50) + "px";
 
+        this.drawDoor(elevator, elevatorElement);
         this.drawRiders(elevator, elevatorElement);
     }
 
@@ -316,6 +344,12 @@ const simulation = new Simulation(ELEVATORS);
 
 document.querySelector("#create-rider-button").addEventListener("click", function() {
     simulation.createRider();
+});
+
+document.querySelector("#create-many-riders-button").addEventListener("click", function() {
+    for (let i = 0; i < 50; i++) {
+        simulation.createRider();
+    }
 });
 
 document.querySelector("#pause-sim-button").addEventListener("click", function() {
