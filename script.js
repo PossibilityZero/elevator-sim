@@ -21,6 +21,7 @@ class Elevator {
         this.height = 1;
         this.capacity = capacity;
         this.riders = [];
+        this.requestQueue = [];
         this.destination = null;
         this.shaft = new ElevatorShaft(this);
         this.doors = new ElevatorDoor(this);
@@ -35,7 +36,7 @@ class Elevator {
     }
 
     get canMove() {
-        return this.doors.areClosed && this.destination !== null;
+        return this.doors.areClosed;
     }
 
     get findRidersForThisFloor() {
@@ -100,7 +101,7 @@ class ElevatorShaft {
         let destination = this.elevator.destination;
         let height = this.elevator.height;
         let maxSpeed = 0.05;
-        if (this.elevator.canMove) {
+        if (this.elevator.canMove && destination) {
             if (height > destination) {
                 let diff = Math.max(maxSpeed * -1, destination - height);
                 this.velocity = diff;
@@ -255,13 +256,25 @@ class Simulation {
         }
     }
 
-    drawRiders(elevator, elevatorElement) {
+    drawRidersInElevator(elevator, elevatorElement) {
         for (let i = 0; i < elevator.riderCount; i++) {
             let rider = document.createElement("div");
             rider.classList.add("rider");
             elevatorElement.append(rider);
             rider.style.backgroundColor = elevator.riders[i].color;
         }
+    }
+
+    drawWaitingRiders(floorElement) {
+        let floor = floorElement.dataset.floor;
+        this.waitingRiders
+                .filter(rider => rider.start == floor)
+                .forEach(function(rider) {
+                    let riderElement = document.createElement("div");
+                    riderElement.classList.add("rider");
+                    floorElement.append(riderElement);
+                    riderElement.style.backgroundColor = rider.color;
+                });
     }
 
     drawDoor(elevator, elevatorElement) {
@@ -278,20 +291,20 @@ class Simulation {
         elevatorElement.style.bottom = ((elevator.height - 1) * 50) + "px";
 
         this.drawDoor(elevator, elevatorElement);
-        this.drawRiders(elevator, elevatorElement);
+        this.drawRidersInElevator(elevator, elevatorElement);
     }
 
-    drawElevatorShaft(elevator) {
+    drawElevatorShaft(elevator, buildingElement) {
         const newShaft = document.createElement("div");
         newShaft.classList.add("elevator-shaft");
-        this.graphicsContainer.appendChild(newShaft);
+        buildingElement.appendChild(newShaft);
         newShaft.style.height = elevator.floors * 50 + "px";
         newShaft.style.width = "40px";
 
         for (let i = 0; i < elevator.floors; i++) {
             let floor = document.createElement("div");
             floor.textContent = i + 1;
-            floor.classList.add("floor");
+            floor.classList.add("elevator-floor");
             floor.dataset.floor = i + 1;
             floor.style.bottom = (i * 50) + "px";
             if (i % 2 === 0) {
@@ -305,9 +318,39 @@ class Simulation {
         this.drawElevator(elevator, newShaft);
     }
 
+    drawFloors(buildingElement) {
+        let floorsContainer = document.createElement("div");
+        floorsContainer.classList.add("building-floors-container");
+        buildingElement.appendChild(floorsContainer);
+
+        for (let i = 0; i < 7; i++) {
+            let floor = document.createElement("div");
+            floor.classList.add("building-floor");
+            floor.dataset.floor = i + 1;
+            floor.style.bottom = (i * 50) + "px";
+            if (i % 2 === 0) {
+                floor.style.backgroundColor = "#fff3";
+            } else {
+                floor.style.backgroundColor = "#fff1";
+            }
+            this.drawWaitingRiders(floor);
+            floorsContainer.append(floor);
+        }
+    }
+
+    drawBuilding() {
+        // A Building represents a collection of elevators
+        // TODO Separate buildings into their own data structure
+        const newBuilding = document.createElement("div");
+        newBuilding.classList.add("building");
+        this.graphicsContainer.appendChild(newBuilding);
+        this.elevators.forEach(elevator => this.drawElevatorShaft(elevator, newBuilding));
+        this.drawFloors(newBuilding);
+    }
+
     drawGraphics() {
         this.clearGraphics();
-        this.elevators.forEach(elevator => this.drawElevatorShaft(elevator));
+        this.drawBuilding();
     }
 
     simulateTick() {
