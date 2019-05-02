@@ -207,7 +207,9 @@ class Simulation {
         for (let i = 0; i < shafts; i++) {
             this.addElevator();
         }
+        this.ticksElapsed = 0;
         this.graphicsContainer = document.querySelector(".simulation-graphics-container");
+        this.debugContainer = document.querySelector(".debug-info-container");
     }
 
     addElevator() {
@@ -353,10 +355,24 @@ class Simulation {
         this.drawBuilding();
     }
 
+    addDebugInfo(name, value) {
+        this.debugContainer.textContent += `${name}: ${value} `;
+    }
+
+    updateDebugInfo() {
+        this.debugContainer.textContent = "";
+        this.addDebugInfo("Ticks Elapsed", this.ticksElapsed);
+        this.addDebugInfo("Waiting Riders", this.waitingRiders.length);
+    }
+
     simulateTick() {
         this.drawGraphics();
         this.elevators.forEach(elevator => elevator.update());
         this.updateController();
+
+        this.updateDebugInfo();
+
+        this.ticksElapsed++;
     }
 
     run() {

@@ -106,3 +106,11 @@ button:hover {
   z-index: 5;
   color: #0003;
 }
+
+.debug-info-container {
+  display: block;
+  border-style: solid;
+  border-color: #f00;
+  border-width: 2px;
+  padding: 3px;
+}
