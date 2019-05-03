@@ -490,4 +490,10 @@ document.querySelector("#pause-sim-button").addEventListener("click", function()
     }
 });
 
+document.querySelector("#reset-sim-button").addEventListener("click", function() {
+    simulation.reset();
+    simulation.run();
+    document.querySelector("#pause-sim-button").textContent = "Pause";
+});
+
 simulation.run();
