@@ -1,4 +1,4 @@
-const FLOORS = 7;
+const FLOORS = 10;
 const ELEVATORS = 2;
 const direction = {
     UP: "up",
@@ -90,7 +90,8 @@ class Elevator {
     }
 
     setDestination(floor) {
-        if (!floor) {
+        if (!floor && this.isStoppedAtFloor) {
+            // only set destination to null if stopped at a floor
             this.destination = null;
         } else if (Number.isInteger(floor)) {
             this.destination = floor;
@@ -138,6 +139,8 @@ class ElevatorShaft {
             } else {
                 this.velocity = 0;
             }
+        } else {
+            this.velocity = 0;
         }
         this.elevator.height += this.velocity;
     }
@@ -232,11 +235,11 @@ class Building {
     // Group of elevators which share the same pool of riders
     constructor(id, elevators, floors) {
         this.elevators = [];
+        this.waitingRiders = [];
+        this.floors = floors;
         for (let i = 0; i < elevators; i++) {
             this.addElevator();
         }
-        this.waitingRiders = [];
-        this.floors = floors;
     }
 
     getElevatorsAtFloor(floor) {
@@ -253,7 +256,7 @@ class Building {
     }
 
     addElevator() {
-        this.elevators.push(new Elevator(FLOORS, CAPACITY));
+        this.elevators.push(new Elevator(this.floors, CAPACITY));
     }
 
     updateRiders() {
@@ -404,7 +407,7 @@ class Simulation {
         floorsContainer.classList.add("building-floors-container");
         buildingElement.appendChild(floorsContainer);
 
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < building.floors; i++) {
             let floor = document.createElement("div");
             floor.classList.add("building-floor");
             floor.dataset.floor = i + 1;
