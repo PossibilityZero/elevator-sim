@@ -12,6 +12,7 @@ const doorState = {
     CLOSING: "closing"
 }
 
+const DEFAULT_ALGORITHM = "First In Line";
 const CAPACITY = 12;
 
 class Elevator {
@@ -24,6 +25,7 @@ class Elevator {
         this.shaft = new ElevatorShaft(this);
         this.doors = new ElevatorDoor(this);
         this.remainingDelayTicks = 0;
+        this.direction = direction.NONE;
     }
 
     get delaying() {
@@ -237,6 +239,7 @@ class Building {
         this.elevators = [];
         this.waitingRiders = [];
         this.floors = floors;
+        this.controlAlgorithm = DEFAULT_ALGORITHM;
         for (let i = 0; i < elevators; i++) {
             this.addElevator();
         }
@@ -273,24 +276,9 @@ class Building {
         }
     }
 
-
     directElevators() {
         // Decide which elevators go where
-        this.elevators.forEach(function(elevator) {
-            if (elevator.isStoppedAtFloor
-                    && elevator.hasCapacity
-                    && this.getRidersAtFloor(elevator.floor).length > 0) {
-                elevator.doors.open();
-            } else if (elevator.riderCount === 0) {
-                if (this.waitingRiders.length > 0) {
-                    elevator.setDestination(this.waitingRiders[0].start);
-                } else {
-                    elevator.setDestination(null);
-                }
-            } else {
-                elevator.setDestination(elevator.riders[0].destination);
-            }
-        }.bind(this));
+        ElevatorControlAlgorithms[this.controlAlgorithm](this);
     }
 
     updateController() {
@@ -460,6 +448,26 @@ class Simulation {
     pause() {
         clearInterval(this.sim);
     }
+}
+
+const ElevatorControlAlgorithms =  {
+    "First In Line" : function(building) {
+        building.elevators.forEach(function(elevator) {
+            if (elevator.isStoppedAtFloor
+                    && elevator.hasCapacity
+                    && building.getRidersAtFloor(elevator.floor).length > 0) {
+                elevator.doors.open();
+            } else if (elevator.riderCount === 0) {
+                if (building.waitingRiders.length > 0) {
+                    elevator.setDestination(building.waitingRiders[0].start);
+                } else {
+                    elevator.setDestination(null);
+                }
+            } else {
+                elevator.setDestination(elevator.riders[0].destination);
+            }
+        });
+    },
 }
 
 function pickFloor(min, max) {
