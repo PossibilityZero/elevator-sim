@@ -479,12 +479,12 @@ function pickFloor(min, max) {
 const simulation = new Simulation();
 
 document.querySelector("#create-rider-button").addEventListener("click", function() {
-    simulation.buildings[0].createRider();
+    simulation.buildings.forEach(building => building.createRider());
 });
 
 document.querySelector("#create-many-riders-button").addEventListener("click", function() {
     for (let i = 0; i < 50; i++) {
-        simulation.buildings[0].createRider();
+        simulation.buildings.forEach(building => building.createRider());
     }
 });
 
